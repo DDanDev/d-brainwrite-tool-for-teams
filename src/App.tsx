@@ -45,13 +45,14 @@ function App() {
 					>
 						<img
 							style={{ height: '100%' }}
-							src='../../TeamsAppPackage/color.png'
+							src='src/assets/color.png'
 							alt='D Brainwrite Tool logo'
 						/>
 					</div>
 				</>
 			) : (
-				<BrowserRouter>
+				<BrowserRouter> 
+				{/* must replace with hashrouter */}
 					<Routes>
 						<Route path='/' element={<TabConfig />} />
 						<Route

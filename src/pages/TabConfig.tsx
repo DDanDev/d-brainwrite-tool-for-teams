@@ -19,7 +19,7 @@ export const TabConfig = () => {
 			<div style={{ flex: '1 1 0', display: 'flex', justifyContent: 'center', padding: '3rem' }}>
 				<img
 					style={{ height: '100%' }}
-					src='../../TeamsAppPackage/color.png'
+					src='src/assets/color.png'
 					alt='D Brainwrite Tool logo'
 				/>
 			</div>

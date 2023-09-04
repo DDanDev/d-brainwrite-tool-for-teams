@@ -49,7 +49,7 @@ export const MeetingStage = () => {
 
 		const makeOrder = [];
 
-		for (let user of allUsers) {
+		for (const user of allUsers) {
 			const id = user.userId;
 			makeOrder.push(id);
 			setBoards(id, { readyForNextRound: false });
@@ -121,10 +121,10 @@ export const MeetingStage = () => {
 		if (allAreReady) setCurrentRound(currentRound + 1);
 
 		// rudimentary final display of all boards
-		let makeboardsDisplay: any = [];
+		const makeboardsDisplay: any = [];
 		boards.forEach((board, id) => {
 			makeboardsDisplay.push(<h3 key={id}>{`board id: ${id}`}</h3>);
-			for (let key in board) {
+			for (const key in board) {
 				makeboardsDisplay.push(
 					<p key={`${id}${key}`}>{`${key}: ${board[key]}`}</p>
 				);

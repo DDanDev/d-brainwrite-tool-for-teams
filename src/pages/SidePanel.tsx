@@ -3,7 +3,7 @@ import * as teamsJS from '@microsoft/teams-js';
 export const SidePanel = () => {
 	return (
 		<>
-			<img src='../../TeamsAppPackage/color.png' alt='D Brainwrite Tool logo' />
+			<img src='src/assets/color.png' alt='D Brainwrite Tool logo' />
 			<button
 				onClick={() =>
 					teamsJS.meeting.shareAppContentToStage(() => {
