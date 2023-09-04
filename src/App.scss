@@ -1,0 +1,39 @@
+* {
+	color: #fff;
+	margin: 0;
+	padding: 0;
+	box-sizing: border-box;
+	font-family: sans-serif;
+}
+
+body,
+html {
+	height: 100%;
+	width: 100%;
+	background-color: hsl(0, 2%, 12%);
+}
+
+#root {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	width: 100%;
+	// overflow: hidden;
+	text-align: center;
+	align-items: center;
+	padding: 1rem;
+}
+
+input,
+textarea {
+	background: rgba(255, 255, 255, 0.1);
+}
+
+button {
+	padding: 0.5rem;
+	background: #444791;
+}
+
+button.primary {
+	font-size: 1.5rem;
+}
