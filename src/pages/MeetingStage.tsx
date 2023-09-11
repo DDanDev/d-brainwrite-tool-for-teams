@@ -4,7 +4,11 @@ import {
 	useSharedState,
 	useSharedMap,
 } from '@microsoft/live-share-react';
-import { useEffect, useState } from 'react';
+import {
+	ChangeEventHandler,
+	useEffect,
+	useState,
+} from 'react';
 import './MeetingStage.scss';
 
 export const MeetingStage = () => {
@@ -26,14 +30,17 @@ export const MeetingStage = () => {
 	const [currentRound, setCurrentRound] = useSharedState('currentround', -1);
 	const [firstBoardIndex, setFirstBoardIndex] = useState<number>(-1);
 	const [notParticipating, setNotParticipating] = useState(false);
+	type Entry = { userId: string; userName: string; terms: string[] };
+	type Board = {
+		entries: Entry[];
+		readyForNextRound: boolean;
+		boardId: string;
+	};
 	const {
 		map: boards,
 		setEntry: setBoards,
 		sharedMap: boardsMap,
-	} = useSharedMap<{
-		[key: string]: string[] | boolean;
-		readyForNextRound: boolean;
-	}>('boards');
+	} = useSharedMap<Board>('boards');
 
 	useEffect(() => {
 		if (started) return;
@@ -52,7 +59,11 @@ export const MeetingStage = () => {
 		for (const user of allUsers) {
 			const id = user.userId;
 			makeOrder.push(id);
-			setBoards(id, { readyForNextRound: false });
+			setBoards(id, {
+				readyForNextRound: false,
+				boardId: id,
+				entries: Array(rounds),
+			});
 		}
 		setOrder(makeOrder);
 		setCurrentRound(currentRound + 1);
@@ -70,50 +81,62 @@ export const MeetingStage = () => {
 		setFirstBoardIndex(localFirstBoardIndex);
 	}, [order]);
 
+	const [localBoard, setLocalBoard] = useState<Board>({
+		readyForNextRound: false,
+		boardId: '',
+		entries: [],
+	});
 	// Boards Component! Remove from here
 	useEffect(() => {
 		if (
 			currentRound < 0 ||
 			!localUser?.userId ||
 			order.length === 0 ||
-			firstBoardIndex < 0
+			firstBoardIndex < 0 ||
+			currentRound >= rounds
 		)
 			return;
 		// useEffect on load and [currentRound]
-		const localRoundBoard =
-			order[(firstBoardIndex + currentRound) % order.length];
-		const localBoard = boards.get(localRoundBoard); // probably in a local state, to display only the one
-		console.log('here', localRoundBoard, firstBoardIndex, currentRound);
-		setBoards(localRoundBoard, {
-			...localBoard,
-			[localUser.userId + 'round:' + currentRound]:
-				Array(rounds).fill('type here'),
-			readyForNextRound: false,
-		});
+		const localBoardGet = boards.get(
+			order[(firstBoardIndex + currentRound) % order.length]
+		); // probably in a local state, to display only the one
+		if (!localBoardGet) throw 'board not found';
+
+		// add this round to this board
+		localBoardGet.entries[currentRound] = {
+			userId: localUser.userId,
+			userName: localUser.displayName || localUser.userId.slice(0, 7),
+			terms: Array(terms).fill(''),
+		};
+		localBoardGet.readyForNextRound = false;
+		setLocalBoard(localBoardGet);
+		setBoards(localBoardGet.boardId, localBoardGet);
 	}, [currentRound, firstBoardIndex]);
 
-	// Populate terms by adding straight to localBoard[localUser.userId][termNumber]
-	// write this code
+	const handleInput: ChangeEventHandler<HTMLInputElement> = (e) => {
+		setLocalBoard((prev) => {
+			const previous = { ...prev };
+			previous.entries[currentRound].terms[parseInt(e.target.name)] =
+				e.target.value;
+			return previous;
+		});
+	};
 
-	// When each clicks next
+	// OnClick Ready for Next button
 	const handleNext = () => {
-		const localRoundBoard =
-			order[(firstBoardIndex + currentRound) % order.length];
-		const localBoard = boards.get(localRoundBoard); // probably in a local state, to display only the one
-		// OnClick Ready for Next button
-		setBoards(localRoundBoard, {
+		setBoards(localBoard.boardId, {
 			...localBoard,
 			readyForNextRound: true,
 		});
 	};
 
 	const [boardsDisplay, setBoardsDisplay] = useState<any>([]);
-	// boardsMap?.addListener('valueChanged', () => {
+
 	useEffect(() => {
-		console.log(boards);
 		// check all boards ready === true, increment currentRound
 		let allAreReady = true;
 		boards.forEach((board) => {
+			// try to put this on handlenext so only the last person that clicks does this check and changes shared round number, instead of everyone both when round changes and each time someone becomes ready. Will have to try using boardsMap instead of boards to get up to date values after the set. Or use a local variable with all boards plus the new one.
 			if (board.readyForNextRound === false) {
 				allAreReady = false;
 			}
@@ -122,17 +145,49 @@ export const MeetingStage = () => {
 
 		// rudimentary final display of all boards
 		const makeboardsDisplay: any = [];
-		boards.forEach((board, id) => {
-			makeboardsDisplay.push(<h3 key={id}>{`board id: ${id}`}</h3>);
-			for (const key in board) {
+		boards.forEach((board, boardId) => {
+			makeboardsDisplay.push(
+				<>
+					<hr key={boardId+'hr'} style={{ width: '70%', marginTop: '2rem' }} />
+					<h3 key={boardId}>{`board started by: ${
+						board?.entries[0]?.userName || boardId.slice(0, 7)
+					}`}</h3>
+				</>
+			);
+			for (const entry of board.entries) {
+				if (!entry) continue;
 				makeboardsDisplay.push(
-					<p key={`${id}${key}`}>{`${key}: ${board[key]}`}</p>
+					<div
+						style={{
+							display: 'flex',
+							margin: '0.5rem',
+							gap: '1rem',
+							alignItems: 'center',
+						}}
+					>
+						<p key={`${boardId}${entry.userId}p`}>{`${entry.userName}`}</p>
+						{entry.terms.map((term, termIndex) => (
+							<input
+								disabled
+								value={term}
+								key={`${boardId + entry.userId + termIndex}`}
+								style={{ padding: '1rem' }}
+							/>
+						))}
+					</div>
 				);
 			}
 		});
 		setBoardsDisplay(makeboardsDisplay);
-		// });
 	}, [boards]);
+
+	const restartAll = () => {
+		const ask = confirm(
+			'This will clear everything for everyone. Are you sure you want to continue?'
+		);
+		if (ask) setStarted(false);
+	};
+
 	return joinError ? (
 		<h1>joinError.message</h1>
 	) : !joined ? (
@@ -219,14 +274,47 @@ export const MeetingStage = () => {
 		</>
 	) : notParticipating ? (
 		<h2>You must have joined when the session was set up</h2>
+	) : !(currentRound >= rounds) ? (
+		<>
+			{/* // Populate terms by adding straight to localBoard[localUser.userId][termNumber] */}
+			{`Round number ${currentRound + 1}`}
+			{localBoard.entries.map((entry, entryIndex) => {
+				if (!entry) return;
+				return (
+					<div
+						style={{
+							display: 'flex',
+							margin: '0.5rem',
+							gap: '1rem',
+							alignItems: 'center',
+						}}
+					>
+						<p>{entry.userName}</p>
+						{entry.terms.map((term, termIndex) => (
+							<input
+								name={`${termIndex}`}
+								value={term}
+								placeholder='Type here'
+								onChange={handleInput}
+								disabled={entryIndex !== currentRound}
+								style={{ padding: '1rem', textAlign: 'center' }}
+							/>
+						))}
+					</div>
+				);
+			})}
+			<button onClick={handleNext}>Ready!</button>
+			<button onClick={restartAll}>reset</button>
+		</>
 	) : (
 		<>
-			<h1>user boards</h1>
-			<h3>{localUser?.userId || 'waiting for local user id'}</h3>
+			<h1>Finished Boards</h1>
+			<h3>
+				Local user: {localUser?.displayName || 'waiting for local user id'}
+			</h3>
 			{boardsDisplay}
 			<div style={{ display: 'flex', gap: '1rem', padding: '1rem' }}>
-				<button onClick={() => setStarted(false)}>reset</button>
-				<button onClick={handleNext}>Next!</button>
+				<button onClick={restartAll}>reset</button>
 			</div>
 		</>
 	);
