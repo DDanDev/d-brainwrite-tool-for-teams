@@ -3,22 +3,38 @@ import {
 	useLivePresence,
 	useSharedState,
 	useSharedMap,
+	useLiveTimer,
 } from '@microsoft/live-share-react';
-import {
-	ChangeEventHandler,
-	useEffect,
-	useState,
-} from 'react';
+import { ChangeEventHandler, useEffect, useState } from 'react';
 import './MeetingStage.scss';
+
+const colors = [
+	'hsl(0,50%,55%)',
+	'hsl(180,50%,55%)',
+	'hsl(90,50%,55%)',
+	'hsl(270,50%,55%)',
+	'hsl(45,50%,55%)',
+	'hsl(135,50%,55%)',
+	'hsl(225,50%,55%)',
+	'hsl(315,50%,55%)',
+];
 
 export const MeetingStage = () => {
 	const { joined, joinError } = useLiveShareContext();
 
-	const { localUser, allUsers } = useLivePresence('presence');
+	const { localUser, allUsers, updatePresence } = useLivePresence('presence', {
+		color: '',
+	});
 	const [theme, setTheme] = useSharedState('theme', '');
 	const [rounds, setRounds] = useSharedState('rounds', 0);
 	const [terms, setTerms] = useSharedState('terms', 3);
 	const [timer, setTimer] = useSharedState('timer', 5);
+
+	const {
+		start: startTimer,
+		milliRemaining: msTimer,
+		pause: pauseTimer,
+	} = useLiveTimer('roundtimer');
 
 	useEffect(() => {
 		setRounds(allUsers.length); // might want to use a button to refresh or make this only happen at the beginning
@@ -70,6 +86,7 @@ export const MeetingStage = () => {
 		setStarted(true);
 		setDisabled(false);
 	};
+
 	useEffect(() => {
 		if (order.length === 0 || !localUser?.userId) return;
 
@@ -79,6 +96,7 @@ export const MeetingStage = () => {
 			return;
 		}
 		setFirstBoardIndex(localFirstBoardIndex);
+		updatePresence({ color: colors[localFirstBoardIndex % colors.length] });
 	}, [order]);
 
 	const [localBoard, setLocalBoard] = useState<Board>({
@@ -94,8 +112,10 @@ export const MeetingStage = () => {
 			order.length === 0 ||
 			firstBoardIndex < 0 ||
 			currentRound >= rounds
-		)
+		) {
+			pauseTimer();
 			return;
+		}
 		// useEffect on load and [currentRound]
 		const localBoardGet = boards.get(
 			order[(firstBoardIndex + currentRound) % order.length]
@@ -111,6 +131,7 @@ export const MeetingStage = () => {
 		localBoardGet.readyForNextRound = false;
 		setLocalBoard(localBoardGet);
 		setBoards(localBoardGet.boardId, localBoardGet);
+		startTimer(timer * 1000 * 60);
 	}, [currentRound, firstBoardIndex]);
 
 	const handleInput: ChangeEventHandler<HTMLInputElement> = (e) => {
@@ -148,7 +169,10 @@ export const MeetingStage = () => {
 		boards.forEach((board, boardId) => {
 			makeboardsDisplay.push(
 				<>
-					<hr key={boardId+'hr'} style={{ width: '70%', marginTop: '2rem' }} />
+					<hr
+						key={boardId + 'hr'}
+						style={{ width: '70%', marginTop: '2rem' }}
+					/>
 					<h3 key={boardId}>{`board started by: ${
 						board?.entries[0]?.userName || boardId.slice(0, 7)
 					}`}</h3>
@@ -161,17 +185,24 @@ export const MeetingStage = () => {
 						style={{
 							display: 'flex',
 							margin: '0.5rem',
+							padding: '0.5rem',
 							gap: '1rem',
 							alignItems: 'center',
+							background:
+								allUsers.find((user) => user.userId === entry.userId)?.data
+									?.color || 'hsl(20,5%,34%)',
 						}}
 					>
-						<p key={`${boardId}${entry.userId}p`}>{`${entry.userName}`}</p>
+						<p
+							key={`${boardId}${entry.userId}p`}
+							style={{ width: '10rem' }}
+						>{`${entry.userName}`}</p>
 						{entry.terms.map((term, termIndex) => (
 							<input
 								disabled
 								value={term}
 								key={`${boardId + entry.userId + termIndex}`}
-								style={{ padding: '1rem' }}
+								style={{ padding: '1rem', background: 'rgba(10,10,10,0.2)' }}
 							/>
 						))}
 					</div>
@@ -277,7 +308,8 @@ export const MeetingStage = () => {
 	) : !(currentRound >= rounds) ? (
 		<>
 			{/* // Populate terms by adding straight to localBoard[localUser.userId][termNumber] */}
-			{`Round number ${currentRound + 1}`}
+			<p>{`Round number ${currentRound + 1}`}</p>
+			<p>{theme}</p>
 			{localBoard.entries.map((entry, entryIndex) => {
 				if (!entry) return;
 				return (
@@ -285,11 +317,15 @@ export const MeetingStage = () => {
 						style={{
 							display: 'flex',
 							margin: '0.5rem',
+							padding: '0.5rem',
 							gap: '1rem',
 							alignItems: 'center',
+							background:
+								allUsers.find((user) => user.userId === entry.userId)?.data
+									?.color || 'hsl(20,5%,34%)',
 						}}
 					>
-						<p>{entry.userName}</p>
+						<p style={{ width: '10rem' }}>{entry.userName}</p>
 						{entry.terms.map((term, termIndex) => (
 							<input
 								name={`${termIndex}`}
@@ -297,21 +333,28 @@ export const MeetingStage = () => {
 								placeholder='Type here'
 								onChange={handleInput}
 								disabled={entryIndex !== currentRound}
-								style={{ padding: '1rem', textAlign: 'center' }}
+								style={{
+									padding: '1rem',
+									textAlign: 'center',
+									background: 'rgba(10,10,10,0.35)',
+								}}
 							/>
 						))}
 					</div>
 				);
 			})}
+			{msTimer && (
+				<p style={{ margin: '1rem' }}>{`${parseInt(
+					`${msTimer / 1000 / 60}`
+				)}:${parseInt(`${(msTimer / 1000) % 60}`)}`}</p>
+			)}
 			<button onClick={handleNext}>Ready!</button>
 			<button onClick={restartAll}>reset</button>
 		</>
 	) : (
 		<>
 			<h1>Finished Boards</h1>
-			<h3>
-				Local user: {localUser?.displayName || 'waiting for local user id'}
-			</h3>
+			<h4>{theme}</h4>
 			{boardsDisplay}
 			<div style={{ display: 'flex', gap: '1rem', padding: '1rem' }}>
 				<button onClick={restartAll}>reset</button>
