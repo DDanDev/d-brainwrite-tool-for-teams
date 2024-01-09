@@ -4,36 +4,70 @@
 	padding: 0;
 	box-sizing: border-box;
 	font-family: sans-serif;
+
+	border-radius: 5px;
 }
 
-body,
 html {
 	height: 100%;
 	width: 100%;
-	background-color: hsl(0, 2%, 12%);
+	background: fixed radial-gradient(hsl(240, 22%, 10%), hsl(240, 30%, 15%));
+}
+
+body {
+	min-width: fit-content;
 }
 
 #root {
 	display: flex;
 	flex-direction: column;
-	height: 100%;
-	width: 100%;
-	// overflow: hidden;
 	text-align: center;
 	align-items: center;
 	padding: 1rem;
+	position: relative;
 }
 
 input,
 textarea {
 	background: rgba(255, 255, 255, 0.1);
+	text-align: center;
+
+	&.terms {
+		padding: 0.75rem 0.5rem;
+		background: rgba(10, 10, 10, 0.35);
+
+		$borderstyle: 2px solid;
+		$borderColor1: hsla(0, 0%, 10%, 0.5);
+		$borderColor2: hsla(0, 0%, 90%, 0.5);
+		border-top: $borderstyle $borderColor1;
+		border-left: $borderstyle $borderColor1;
+		border-right: $borderstyle $borderColor2;
+		border-bottom: $borderstyle $borderColor2;
+
+		&:disabled {
+			border: solid 2px rgba(0, 0, 0, 0);
+		}
+	}
 }
 
 button {
-	padding: 0.5rem;
-	background: #444791;
-}
+	padding: 0.5rem 2rem;
+	background: hsl(238, 36%, 42%);
+	border: none;
+	outline: none;
+	margin: 0.5rem;
+	box-shadow: 4px 3px 10px -2px hsla(0, 0%, 40%, 0.5);
+	cursor: pointer;
 
-button.primary {
-	font-size: 1.5rem;
+	&.readyForNext {
+		background: hsl(120, 40%, 45%);
+	}
+
+	&:active {
+		background: hsl(238, 46%, 62%);
+	}
+
+	&.primary {
+		font-size: 1.5rem;
+	}
 }

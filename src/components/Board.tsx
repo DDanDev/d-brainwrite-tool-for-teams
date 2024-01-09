@@ -4,42 +4,50 @@ import { User } from '../types/User';
 
 export const Board: FC<{
 	board: BoardObj;
-	theme: string;
-	currentRound: number;
-	handleNext: () => void;
+	theme?: string;
+	currentRound?: number;
+	rounds?: number;
+	handleNext?: () => void;
 	allUsers: User[];
 	handleInput: ChangeEventHandler<HTMLInputElement>;
 	msTimer?: number;
-	restartAll: () => void;
-}> = ({
-	board,
-	theme,
-	currentRound,
-	handleNext,
-	allUsers,
-	handleInput,
-	msTimer,
-	restartAll,
-}) => {
+	restartAll?: () => void;
+}> = ({ board, theme, currentRound, rounds, handleNext, allUsers, handleInput, msTimer, restartAll }) => {
 	return (
 		<>
-			{/* // Populate terms by adding straight to localBoard[localUser.userId][termNumber] */}
-			<p>{`Round number ${currentRound + 1}`}</p>
-			<p>{theme}</p>
+			{currentRound !== undefined && <h2>{`Round ${currentRound + 1} of ${rounds}`}</h2>}
+			{msTimer !== undefined && (
+				<p style={{ marginBottom: '1rem' }}>
+					{`${Math.trunc(msTimer / 1000 / 60)}:${String(Math.trunc((msTimer / 1000) % 60)).padStart(2, '0')}`}
+				</p>
+			)}
+			{theme && <p style={{ marginBottom: '0.5rem' }}>{theme}</p>}
+			{restartAll && (
+				<button
+					onClick={restartAll}
+					style={{
+						padding: '3px 5px',
+						position: 'absolute',
+						top: '0.25rem',
+						right: '0.25rem',
+					}}
+				>
+					Restart
+				</button>
+			)}
 			{board.entries.map((entry, entryIndex) => {
 				if (!entry) return;
 				return (
 					<div
 						style={{
 							display: 'flex',
-							margin: '0.5rem',
-							padding: '0.5rem',
-							gap: '1rem',
+							padding: '0.25rem',
+							gap: '0.5rem',
 							alignItems: 'center',
 							background:
-								allUsers.find((user) => user.userId === entry.userId)?.data
-									?.color || 'hsl(20,5%,34%)',
+								allUsers.find((user) => user.userId === entry.userId)?.data?.color || 'hsl(20,5%,34%)',
 						}}
+						key={`${board.boardId}${entryIndex}`}
 					>
 						<p style={{ width: '10rem' }}>{entry.userName}</p>
 						{entry.terms.map((term, termIndex) => (
@@ -49,26 +57,22 @@ export const Board: FC<{
 								value={term}
 								placeholder='Type here'
 								onChange={handleInput}
-								disabled={entryIndex !== currentRound}
-								style={{
-									padding: '1rem',
-									textAlign: 'center',
-									background: 'rgba(10,10,10,0.35)',
-								}}
+								disabled={entryIndex !== currentRound || board.readyForNextRound}
+								className='terms'
 							/>
 						))}
 					</div>
 				);
 			})}
-			{msTimer !== undefined && (
-				<>
-					<p style={{ margin: '1rem' }}>{`${parseInt(
-						`${msTimer / 1000 / 60}`
-					)}:${parseInt(`${(msTimer / 1000) % 60}`)}`}</p>
-					<button onClick={handleNext}>Ready!</button>
-				</>
+			{handleNext && (
+				<button
+					onClick={handleNext}
+					className={`${board.readyForNextRound ? 'readyForNext' : ''}`}
+					style={{ marginTop: '1rem' }}
+				>
+					Ready!
+				</button>
 			)}
-			<button onClick={restartAll}>reset</button>
 		</>
 	);
 };
