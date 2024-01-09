@@ -6,90 +6,89 @@ import {
 	useLiveTimer,
 } from '@microsoft/live-share-react';
 import { ChangeEventHandler, useEffect, useState } from 'react';
-import './MeetingStage.scss';
 import { Setup } from '../components/Setup';
 import { FSMessage } from '../components/FSMessage';
 import { Board } from '../components/Board';
 import { AllBoards } from '../components/AllBoards';
 import { BoardObj } from '../types/Board';
-
-const colors = [
-	'hsl(0,50%,55%)',
-	'hsl(180,50%,55%)',
-	'hsl(90,50%,55%)',
-	'hsl(270,50%,55%)',
-	'hsl(45,50%,55%)',
-	'hsl(135,50%,55%)',
-	'hsl(225,50%,55%)',
-	'hsl(315,50%,55%)',
-];
+import { PresenceState } from '@microsoft/live-share';
+import { colorFromPalette } from '../utils/colorFromPalette';
 
 export const MeetingStage = () => {
+	// Live Share resources
 	const { joined, joinError } = useLiveShareContext();
-
 	const { localUser, allUsers, updatePresence } = useLivePresence('presence', {
 		color: '',
 	});
-	const [theme, setTheme] = useSharedState('theme', '');
-	const [rounds, setRounds] = useSharedState('rounds', 0);
-	const [terms, setTerms] = useSharedState('terms', 3);
-	const [timer, setTimer] = useSharedState('timer', 5);
+	const { start: startTimer, milliRemaining: msTimer } = useLiveTimer('roundtimer');
 
-	const {
-		start: startTimer,
-		milliRemaining: msTimer,
-		pause: pauseTimer,
-	} = useLiveTimer('roundtimer');
+	// User Setup
+	const [theme, setTheme] = useSharedState('theme', ''); // Reference for context on what users will discuss
+	const [rounds, setRounds] = useSharedState('rounds', 0); // How many rounds will they go through, usually as many as there are participants, up to 5
+	const [terms, setTerms] = useSharedState('terms', 3); // How many keywords each participant is supposed to add per round. Not enforced.
+	const [timer, setTimer] = useSharedState('timer', 5); // How many minutes for a reference timer displayed so that users can keep track and not take too long
 
-	useEffect(() => {
-		setRounds(allUsers.length); // might want to use a button to refresh or make this only happen at the beginning
-	}, [allUsers]);
-
-	const [started, setStarted] = useSharedState('started', false);
-	const [createInProgress, setCreateInProgress] = useSharedState(
-		'disabled',
-		false
-	);
-	const [order, setOrder] = useSharedState('order', [] as string[]);
-	const [currentRound, setCurrentRound] = useSharedState('currentround', -1);
-	const [firstBoardIndex, setFirstBoardIndex] = useState<number>(-1);
-	const [notParticipating, setNotParticipating] = useState(false);
-
-	const {
-		map: boards,
-		setEntry: setBoards,
-		sharedMap: boardsMap,
-	} = useSharedMap<BoardObj>('boards');
-
+	// User Setup suggestion of one round per user, up to 10
 	useEffect(() => {
 		if (started) return;
+		const nOfUsers = allUsers.filter((user) => user.state === PresenceState.online).length;
+		setRounds(nOfUsers > 10 ? 10 : nOfUsers);
+	}, [allUsers]);
+
+	// Rounds Logic
+	const [started, setStarted] = useSharedState('started', false); // Moves out of setup when true
+	const [inProgress, setInProgress] = useSharedState('inProgress', false); // Disables setup inputs temporarily
+	const [order, setOrder] = useSharedState('order', [] as string[]); // Ordered array of user ids to determine who each user passes their board to
+	const [currentRound, setCurrentRound] = useSharedState('currentround', -1); // First round is 0 and incremented up to 'rounds' setup
+	const { map: boards, setEntry: setBoards, sharedMap: boardsMap } = useSharedMap<BoardObj>('boards'); // Map enables us to work on each board individually without each user conflicting with each other. See BoardObj type for more info.
+
+	// Local logic
+	const [firstBoardIndex, setFirstBoardIndex] = useState<number>(-1);
+	const [notParticipating, setNotParticipating] = useState(false);
+	const [localBoard, setLocalBoard] = useState<BoardObj>({
+		boardId: '',
+		readyForNextRound: false,
+		entries: [],
+	});
+
+	// Clear all logic when back to start
+	useEffect(() => {
+		if (started) return;
+		setInProgress(false);
 		setOrder([]);
 		setCurrentRound(-1);
+		boardsMap?.clear();
 		setFirstBoardIndex(-1);
 		setNotParticipating(false);
-		boardsMap?.clear();
 	}, [started]);
 
+	/** To start, define the order the users will send their boards around, then start the first round #0 */
 	const handleStart = () => {
-		setCreateInProgress(true);
+		// Disable everyone's setup input to avoid issues
+		setInProgress(true);
 
+		// Create one board for each user while saving the order the users will send their boards around
 		const makeOrder = [];
-
 		for (const user of allUsers) {
-			const id = user.userId;
-			makeOrder.push(id);
-			setBoards(id, {
-				readyForNextRound: false,
-				boardId: id,
-				entries: Array(rounds),
-			});
+			if (user.state === PresenceState.online) {
+				const id = user.userId;
+				makeOrder.push(id);
+				setBoards(id, {
+					readyForNextRound: false,
+					boardId: id,
+					entries: Array(rounds),
+				});
+			}
 		}
 		setOrder(makeOrder);
-		setCurrentRound(currentRound + 1);
+
+		// Tell everyone that round #0 is ready
+		setCurrentRound(0);
 		setStarted(true);
-		setCreateInProgress(false);
+		setInProgress(false);
 	};
 
+	// When each user receives the order array from whoever clicked start, they will retrieve their own position in the order and generate a unique color for their entries
 	useEffect(() => {
 		if (order.length === 0 || !localUser?.userId) return;
 
@@ -99,15 +98,10 @@ export const MeetingStage = () => {
 			return;
 		}
 		setFirstBoardIndex(localFirstBoardIndex);
-		updatePresence({ color: colors[localFirstBoardIndex % colors.length] });
-	}, [order]);
+		updatePresence({ color: colorFromPalette(order.length, localFirstBoardIndex) });
+	}, [order, localUser?.userId]);
 
-	const [localBoard, setLocalBoard] = useState<BoardObj>({
-		readyForNextRound: false,
-		boardId: '',
-		entries: [],
-	});
-	// Boards Component! Remove from here
+	// When all is ready, and each time current round is updated, retrieve the board the user will work on locally
 	useEffect(() => {
 		if (
 			currentRound < 0 ||
@@ -115,117 +109,73 @@ export const MeetingStage = () => {
 			order.length === 0 ||
 			firstBoardIndex < 0 ||
 			currentRound >= rounds
-		) {
-			pauseTimer();
+		)
+			return;
+
+		// Retrieve the board for the current round given the user's starting position in the order
+		const localBoardGet = boards.get(order[(firstBoardIndex + currentRound) % order.length]);
+		
+		if (!localBoardGet) {
+			setNotParticipating(true); // shouldn't happen, just to avoid unexpected errors
 			return;
 		}
-		// useEffect on load and [currentRound]
-		const localBoardGet = boards.get(
-			order[(firstBoardIndex + currentRound) % order.length]
-		); // probably in a local state, to display only the one
-		if (!localBoardGet) throw 'board not found';
+		if (localBoardGet.entries[currentRound]?.terms.length > 0) return; // avoid an accidental rerender clearing out the terms the user was already working on
 
-		// add this round to this board
+		// add this round to this board. Entry was < empty > up until this point. We save who's adding terms and initialize the array the input handler will use.
 		localBoardGet.entries[currentRound] = {
 			userId: localUser.userId,
 			userName: localUser.displayName || localUser.userId.slice(0, 7),
 			terms: Array(terms).fill(''),
 		};
-		localBoardGet.readyForNextRound = false;
+
+		// Save locally (we will work on the board offline), and publish this board, so everyone else knows its not ready.
+		localBoardGet.readyForNextRound = false; // (local user will receive it with ready = true from the previous user)
 		setLocalBoard(localBoardGet);
 		setBoards(localBoardGet.boardId, localBoardGet);
-		startTimer(timer * 1000 * 60);
-	}, [currentRound, firstBoardIndex]);
 
+		// Start the round timer. Everyone will do this meaning if there's lag the timer might restart a few times at the beggining of the round.
+		startTimer(timer * 1000 * 60);
+	}, [currentRound, firstBoardIndex, localUser?.userId, order]);
+
+	/** Updates local board values as user types. Event target name must be the index of the term to update. */
 	const handleInput: ChangeEventHandler<HTMLInputElement> = (e) => {
 		setLocalBoard((prev) => {
 			const previous = { ...prev };
-			previous.entries[currentRound].terms[parseInt(e.target.name)] =
-				e.target.value;
+			previous.entries[currentRound].terms[parseInt(e.target.name)] = e.target.value;
 			return previous;
 		});
 	};
 
-	// OnClick Ready for Next button
+	/** OnClick 'Ready' button, toggle this board's ready status and update its contents with the new terms.
+	 * While ready, inputs for the user will be blocked and the button highlighted.
+	 * 
+	 * If everyone else is also ready, increment current round to start the next round by triggering the previous useEffect
+	 * When current round is equal to number of rounds that was setup, show all boards.
+	 */
 	const handleNext = () => {
-		setBoards(localBoard.boardId, {
+		const update = {
 			...localBoard,
-			readyForNextRound: true,
-		});
+			readyForNextRound: !localBoard.readyForNextRound,
+		};
+		setBoards(localBoard.boardId, update);
+		setLocalBoard(update);
+
+		// check all other boards ready === true, increment currentRound
+		let allAreReady = update.readyForNextRound;
+		if (allAreReady) { // if local user ready, check the others
+			boards.forEach((board) => {
+				if (board.readyForNextRound === false && board.boardId !== localBoard.boardId) {
+					allAreReady = false;
+				}
+			});
+		}
+		if (allAreReady) setCurrentRound(currentRound + 1);
 	};
 
-	// const [boardsDisplay, setBoardsDisplay] = useState<any>([]);
-
-	const [boardsArray, setBoardsArray] = useState<BoardObj[]>([]);
-
-	useEffect(() => {
-		// check all boards ready === true, increment currentRound
-		let allAreReady = true;
-		boards.forEach((board) => {
-			// try to put this on handlenext so only the last person that clicks does this check and changes shared round number, instead of everyone both when round changes and each time someone becomes ready. Will have to try using boardsMap instead of boards to get up to date values after the set. Or use a local variable with all boards plus the new one.
-			if (board.readyForNextRound === false) {
-				allAreReady = false;
-			}
-		});
-		if (allAreReady) setCurrentRound(currentRound + 1);
-
-		const makeBoardsArray: BoardObj[] = [];
-		boards.forEach((board) => {
-			makeBoardsArray.push(board);
-		});
-		setBoardsArray(makeBoardsArray);
-
-		// rudimentary final display of all boards
-		// const makeboardsDisplay: any = [];
-		// boards.forEach((board, boardId) => {
-		// 	makeboardsDisplay.push(
-		// 		<>
-		// 			<hr
-		// 				key={boardId + 'hr'}
-		// 				style={{ width: '70%', marginTop: '2rem' }}
-		// 			/>
-		// 			<h3 key={boardId}>{`board started by: ${
-		// 				board?.entries[0]?.userName || boardId.slice(0, 7)
-		// 			}`}</h3>
-		// 		</>
-		// 	);
-		// 	for (const entry of board.entries) {
-		// 		if (!entry) continue;
-		// 		makeboardsDisplay.push(
-		// 			<div
-		// 				style={{
-		// 					display: 'flex',
-		// 					margin: '0.5rem',
-		// 					padding: '0.5rem',
-		// 					gap: '1rem',
-		// 					alignItems: 'center',
-		// 					background:
-		// 						allUsers.find((user) => user.userId === entry.userId)?.data
-		// 							?.color || 'hsl(20,5%,34%)',
-		// 				}}
-		// 			>
-		// 				<p
-		// 					key={`${boardId}${entry.userId}p`}
-		// 					style={{ width: '10rem' }}
-		// 				>{`${entry.userName}`}</p>
-		// 				{entry.terms.map((term, termIndex) => (
-		// 					<input
-		// 						disabled
-		// 						value={term}
-		// 						key={`${boardId + entry.userId + termIndex}`}
-		// 						style={{ padding: '1rem', background: 'rgba(10,10,10,0.2)' }}
-		// 					/>
-		// 				))}
-		// 			</div>
-		// 		);
-		// 	}
-		// });
-		// setBoardsDisplay(makeboardsDisplay);
-	}, [boards]);
-
+	/** Method to reset or start over after finished. Will trigger the started useEffect and start all over, if user confirms */
 	const restartAll = () => {
 		const ask = confirm(
-			'This will clear everything for everyone. Are you sure you want to continue?'
+			'This will clear everything for everyone and go back to the setup. Are you sure you want to continue?'
 		);
 		if (ask) setStarted(false);
 	};
@@ -236,7 +186,7 @@ export const MeetingStage = () => {
 		<FSMessage text='Joining Live Share' />
 	) : !started ? (
 		<Setup
-			disabled={createInProgress}
+			disabled={inProgress}
 			theme={theme}
 			setTheme={setTheme}
 			rounds={rounds}
@@ -259,13 +209,13 @@ export const MeetingStage = () => {
 			handleInput={handleInput}
 			msTimer={msTimer}
 			restartAll={restartAll}
+			rounds={rounds}
 		/>
 	) : (
 		<AllBoards
 			theme={theme}
-			boards={boardsArray}
+			boards={boards}
 			restartAll={restartAll}
-			currentRound={currentRound}
 			allUsers={allUsers}
 			handleInput={handleInput}
 		/>

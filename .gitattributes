@@ -1,0 +1,4 @@
+# Same as core.autocrlf=input on git config.
+# All text files including those not covered by prettier on the pipeline will be converted to LF on commit.
+# On checkout to working tree (pull/switch/etc) no changes are made, keeping files as they are in repo.
+* text=auto eol=lf

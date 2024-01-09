@@ -13,15 +13,9 @@ export const TabConfig = () => {
 	}, []);
 	return (
 		<>
-			<h1 style={{ textAlign: 'center' }}>
-				Click save to add app to this meeting
-			</h1>
+			<h1 style={{ textAlign: 'center' }}>Click save to add app to this meeting</h1>
 			<div style={{ flex: '1 1 0', display: 'flex', justifyContent: 'center', padding: '3rem' }}>
-				<img
-					style={{ height: '100%' }}
-					src='src/assets/color.png'
-					alt='D Brainwrite Tool logo'
-				/>
+				<img style={{ height: '100%' }} src='src/assets/color.png' alt='D Brainwrite Tool logo' />
 			</div>
 		</>
 	);

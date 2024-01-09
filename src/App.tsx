@@ -23,7 +23,7 @@ function App() {
 				setInTeams(true);
 				teamsJs.app.notifyAppLoaded();
 				teamsJs.app.notifySuccess();
-			} catch (err: any) {
+			} catch (err) {
 				console.error(err);
 			}
 		})();
@@ -33,26 +33,22 @@ function App() {
 		<>
 			{!inTeams ? (
 				<>
-					<h1 style={{textAlign: 'center'}}>This app can only run in Microsoft Teams. For now</h1>
+					<h1 style={{ textAlign: 'center' }}>This app can only run in Microsoft Teams... For now...</h1>
 					<div
 						style={{
 							flex: '1 1 0',
 							display: 'flex',
 							justifyContent: 'center',
 							padding: '3rem',
-							maxHeight: '25rem'
+							maxHeight: '25rem',
 						}}
 					>
-						<img
-							style={{ height: '100%' }}
-							src='src/assets/color.png'
-							alt='D Brainwrite Tool logo'
-						/>
+						<img style={{ height: '100%' }} src='src/assets/color.png' alt='D Brainwrite Tool logo' />
 					</div>
 				</>
 			) : (
-				<BrowserRouter> 
-				{/* must replace with hashrouter */}
+				<BrowserRouter>
+					{/* must replace with hashrouter */}
 					<Routes>
 						<Route path='/' element={<TabConfig />} />
 						<Route

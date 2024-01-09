@@ -12,6 +12,6 @@ module.exports = {
   rules: {
     'react-refresh/only-export-components': ['warn',{ allowConstantExport: true }],
     'quotes': ['warn', 'single', { 'avoidEscape': true}],
-    '@typescript-eslint/no-explicit-any': 'off',
+    'react-hooks/exhaustive-deps': 'off'
   },
 }
