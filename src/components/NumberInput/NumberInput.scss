@@ -28,9 +28,9 @@ $incrementHeight: calc(($inputHeight - $borderWidth * 2) / 2);
 		position: absolute;
 		width: $incrementWidth;
 		height: $incrementHeight;
-		// border: solid 1px #aaa;
 		border-radius: 0;
 		background: none;
+		cursor: pointer;
 
 		&.increment {
 			top: $borderWidth;
